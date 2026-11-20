@@ -1,44 +1,19 @@
 # Futari Labs Engineering
 
-Reusable engineering workflows for **[futari-labs/engineering](https://github.com/futari-labs/engineering)**, packaged as a Claude Code plugin marketplace.
+Reusable interactive engineering planning and approved pstack execution workflows for [futari-labs/engineering](https://github.com/futari-labs/engineering).
 
-| Command | Purpose |
+| Claude Code command | What it does |
 | --- | --- |
-| `/futari:bootstrap` | Discuss the product, architecture, evaluations, and task plan; prepare a concrete package for human approval. |
-| `/futari:execute` | Verify the approved contract and execute its tasks through the installed pstack workflows. |
+| `/futari:bootstrap` | Interactive product discovery, architecture, executable evaluations, independent review, task design, and a **native terminal approval card**. |
+| `/futari:execute` | Verifies the approved contract and passes eligible work to the actual installed pstack skills and project playbook. |
 
-The Futari plugin depends on **[Michael Denyer's pstack](https://github.com/michael-denyer/pstack-claude)**. pstack remains independently maintained. This repository contains Futari's skills, templates, approval checks, and execution handoff.
+Futari is a companion to [Michael Denyer's pstack](https://github.com/michael-denyer/pstack-claude), not a copy of it. This release keeps the existing cross-marketplace dependency `pstack@pstack-claude`.
 
-## Populate this repository
+## Install once per developer
 
-Create an empty GitHub repository named **engineering** under **futari-labs**. Choose the visibility you want. For this first upload, leave the GitHub README, license, and gitignore initialization options unchecked.
+Requirements: Claude Code, Git, Node.js **22+**, and a supported Claude account/provider. GitHub CLI (`gh`) and pnpm are required for the planned workflows where used. Authenticate GitHub before executing issues and PRs (`gh auth login`).
 
-Download `futari-labs-engineering.zip`, then run these commands in your regular terminal. They assume the ZIP is in Downloads and that you have not already cloned the new repository:
-
-```bash
-mkdir -p ~/Documents/Projects
-cd ~/Documents/Projects
-git clone https://github.com/futari-labs/engineering.git
-cd engineering
-unzip ~/Downloads/futari-labs-engineering.zip -d .
-node tools/validate.mjs
-git add .
-git commit -m "Add Futari Labs engineering plugin"
-git branch -M main
-git push -u origin main
-```
-
-If you already have a local clone, extract the ZIP directly into that clone and review the changes before committing. Do not nest another `engineering` or `FutariLabs-Engineering-Plugin` folder inside the repository.
-
-**The ZIP contains repository-root paths.** `.claude-plugin/marketplace.json`, `.github/`, `plugins/`, `tools/`, and this README must all be at the repository root. `git add .` includes the hidden configuration folders. In macOS Finder, press **Command + Shift + .** to show hidden files if copying them manually.
-
-The archive contains source files only; it does not contain a `.git` directory, installed plugin caches, account settings, or an application project's approved plan. Publishing the files is a separate action performed by the commands above.
-
-## Install after the repository is published
-
-Use a current Claude Code version that supports plugin dependencies. The project initializer and supplied validation scripts require **Node.js 22 or later**.
-
-In your regular terminal, register both marketplaces and install Futari:
+Run in your normal terminal:
 
 ```bash
 claude plugin marketplace add michael-denyer/pstack-claude
@@ -47,48 +22,91 @@ claude plugin install futari@futarilabs
 claude plugin list
 ```
 
-Skip a marketplace-add command when that marketplace is already registered. If you previously registered `futarilabs` from a local directory, inspect the entry in `/plugin` and replace its source with this GitHub repository before adding another entry with the same marketplace name.
+If a marketplace is already registered, skip its registration. The Futari plugin declares pstack as a dependency, so Claude Code can install pstack automatically when its marketplace is registered and dependency resolution is permitted. Verify both plugins are enabled; dependency installation has not been verified on every Claude Code version.
 
-The plugin declares `pstack@pstack-claude` as a dependency and the marketplace permits that cross-marketplace dependency. Claude Code can resolve missing dependencies when the upstream marketplace is registered and permitted. If pstack is already enabled in the relevant scope, reuse it. Any organization-level plugin policy still applies.
-
-For installation inside Claude Code instead of the shell, the equivalent commands are:
+Expected plugin identities:
 
 ```text
-/plugin marketplace add michael-denyer/pstack-claude
-/plugin marketplace add futari-labs/engineering
-/plugin install futari@futarilabs
+futari@futarilabs
+pstack@pstack-claude
 ```
 
-Private repositories require Git credentials with access to `futari-labs/engineering`.
-
-## Use in a product repository
-
-Open Claude Code in the product repository you want to build:
+## Start a product repository
 
 ```bash
-cd /path/to/your/product-repository
+mkdir my-new-project
+cd my-new-project
+git init -b main
 claude
 ```
 
-Begin with:
+Inside Claude Code:
 
 ```text
 /futari:bootstrap
 ```
 
-Describe the product and work through requirements, architecture, evaluation cases, risks, and task dependencies. The skill creates the planning artifacts in that product repository. Review the final package and follow the human-operated approval commands that the skill provides.
+Tell Claude what to build. Futari asks focused questions, captures requirements and measurable acceptance criteria, designs and reviews the architecture, prepares evaluations and a real first vertical slice, then builds an approved task graph.
 
-After approval, start implementation or resume an approved run with:
+For existing work:
+
+```text
+/futari:bootstrap resume
+```
+
+The planning artifacts are stored in each product repository, principally `docs/futari/`, `.futari/plan.json`, `.agents/playbooks/futari-approved-plan.md`, and evaluation files. A per-project `CLAUDE.md` explains the contract. Project instructions keep pstack's automatic session routing off during interactive discovery.
+
+## Approve in the terminal — no manual approval commands
+
+After the design documents and evaluations have been reviewed and the proposed contract committed locally, Futari runs its readiness checks and shows a concise summary of:
+
+- The exact reviewed commit SHA and plan ID
+- Product scope, architecture, and acceptance criteria
+- Evaluation examples, thresholds, and baseline state
+- The first end-to-end vertical slice and task dependencies
+- Risk, parallelism, merge policy, and external spending limits
+
+It then uses Claude Code's **native `AskUserQuestion` interface** to ask:
+
+- **Approve plan** — record the reviewed contract and permit the approved pstack handoff
+- **Request changes** — continue design; approve only after another reviewed commit
+- **Not now** — leave the plan unapproved
+
+Only an explicit **Approve plan** selection authorizes the skill to run the existing `.futari/plan-gate.mjs approve` operation, commit **only** `.futari/approval.json`, and verify the snapshot. A missing card, error, timeout, non-interactive run, or any other answer **cannot** approve the plan.
+
+The card records a decision; it is not cryptographic identity verification. Claude Code still requires its normal permissions for tool actions. The approval does not authorize deployment, spending above budget, scope expansion, or bypassing required reviews and CI.
+
+The approved baseline must be merged into the product repository's default branch before execution starts. For a protected branch, prepare a bootstrap PR and merge it through the normal checks and review policy. Do **not** bypass branch protection.
+
+## Execute the approved plan
+
+Inside the same product repository:
 
 ```text
 /futari:execute
 ```
 
-The execution workflow verifies the frozen contract, inspects the actual installed pstack capabilities, reconciles existing issues and PRs, and starts the approved work. A first end-to-end vertical slice precedes wider parallel implementation. Merge policy, external spending, and other operational boundaries come from the approved plan.
+The skill verifies the frozen plan and pstack compatibility, reconciles existing issues/PRs/worktrees, and invokes the actual pstack skills and repository-specific playbook. It begins with an integrated vertical slice before running independent tasks in parallel. Each task carries requirement, evaluation, scope, and verification identifiers into its issue, worker brief, PR, and evidence.
 
-The shared `engineering` repository distributes the plugin. Each product repository owns its own requirements, approval record, execution state, and evidence.
+Resume a later session with the same `/futari:execute` command. The executor must not regenerate approval or silently weaken the contract to make checks pass.
 
-## Validate and develop locally
+## Plugin layout
+
+```text
+.claude-plugin/marketplace.json
+plugins/futari/.claude-plugin/plugin.json
+plugins/futari/skills/bootstrap/SKILL.md
+plugins/futari/skills/bootstrap/scripts/init-project.mjs
+plugins/futari/skills/bootstrap/assets/repo-template.json
+plugins/futari/skills/bootstrap/references/
+plugins/futari/skills/execute/SKILL.md
+tools/validate.mjs
+.github/workflows/validate.yml
+```
+
+The bootstrap initializer uses the existing `repo-template.json` unchanged. At initialization, it adjusts the generated project's `CLAUDE.md` to describe the native approval-card workflow. For projects initialized before v1.0.2, the bootstrap skill updates only the older Futari approval sentence as part of the reviewed contract.
+
+## Local validation
 
 From this engineering repository:
 
@@ -99,54 +117,27 @@ claude plugin validate ./plugins/futari
 claude plugin validate .
 ```
 
-The first two commands check the packaged structure and JavaScript syntax. The `claude plugin validate` commands use Claude Code's native validators on your machine.
-
-To load the local plugin for a development session:
+To test against local source instead of installed plugin cache:
 
 ```bash
-claude --plugin-dir ~/Documents/Projects/engineering/plugins/futari
+claude --plugin-dir ./plugins/futari
 ```
 
-The pstack dependency must be available to that session. Do not claim a live pstack execution succeeded solely because the package's structural checks passed.
+Try both **Request changes** (must not produce an approval file) and **Approve plan** (must record and verify only the reviewed contract). A passing structural CI workflow does not prove the terminal UI or pstack integration works.
 
-## Repository contents
+## Publish updates
 
-| Path | Purpose |
-| --- | --- |
-| `.claude-plugin/marketplace.json` | Marketplace catalog named `futarilabs`. |
-| `plugins/futari/.claude-plugin/plugin.json` | Plugin manifest named `futari`, with its pstack dependency. |
-| `plugins/futari/skills/bootstrap/` | Interactive skill, references, initializer, and repository templates. |
-| `plugins/futari/skills/execute/SKILL.md` | Approved-plan verification and pstack execution handoff. |
-| `tools/validate.mjs` | Structural validation for the plugin package. |
-| `.github/workflows/validate.yml` | Repository CI for structural and syntax validation. |
-| `.gitignore` and `.gitattributes` | Local-file exclusions and consistent text line endings. |
-
-The `repo-template.json` asset contains the product-repository plan gate, CI inspector, pstack project playbook, planning documents, worker briefs, and evidence templates. These files are created in the product repository by bootstrap.
-
-## Updates and existing installations
-
-Keep the marketplace entry and plugin manifest versions in sync when publishing a new plugin release. This repository package is **1.0.1**.
-
-After pushing an update:
+This is plugin version **1.0.2**. After merging changes to the GitHub repository, existing users can run:
 
 ```bash
 claude plugin marketplace update futarilabs
 claude plugin update futari@futarilabs
 ```
 
-The repository slug `futari-labs/engineering`, marketplace ID `futarilabs`, and plugin ID `futari` have different roles. They intentionally differ; the installed command namespace remains `/futari:...`.
+Restart Claude Code if your running session still shows a cached skill.
 
-Earlier personal skills named `/futari-bootstrap` and `/futari-execute` are separate copies. After confirming that the plugin commands work, archive those old copies if you want to maintain only the plugin version. The plugin package does not remove them.
+This GitHub repository is a usable Claude Code marketplace as soon as it is accessible. Publishing through Anthropic's **official** plugin directory requires a separate submission at https://claude.ai/directory/manage.
 
-## Verification and limits
+## Security and limitations
 
-This repository package was checked for valid JSON, expected plugin layout, JavaScript syntax, complete archive contents, and preservation of the existing skill/template payload. A live Claude Code installation, dependency resolution, and GitHub CI run must still be verified in your environment.
-
-The product-repository guards detect changes to approved files, missing traceability, stale evidence, and out-of-scope changes. Meaningful evaluations and independent review remain necessary for product correctness. Required branch checks and repository permissions provide the merge controls. A human-managed contract amendment is separate from an ordinary implementation PR.
-
-## Primary documentation
-
-- [Claude Code plugin manifest](https://code.claude.com/docs/en/plugins-reference)
-- [Claude Code plugin dependencies](https://code.claude.com/docs/en/plugins/dependencies)
-- [Claude Code marketplaces](https://code.claude.com/docs/en/plugin-marketplaces)
-- [pstack Claude Code port](https://github.com/michael-denyer/pstack-claude)
+The plan gate validates approved file digests and task references, not whether the resulting product is correct. Actual evaluation runs, independent reviews, branch checks, and source-of-truth CI evidence are still required. Use GitHub branch rules to prevent bypassing checks. Keep credentials out of committed fixtures and logs. The execution workflow respects the approved merge policy and does not deploy by default.

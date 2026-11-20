@@ -1,91 +1,116 @@
 ---
 name: bootstrap
-description: Interactively define and review a new FutariLabs project's requirements, architecture, executable evaluations, and task plan before an approved pstack handoff. Use when the user invokes this command to bootstrap or resume design.
+description: Interactively define and review a FutariLabs project's requirements, architecture, evaluations and execution plan; present a native terminal approval card before handing off to pstack.
 disable-model-invocation: true
 argument-hint: "[project idea or resume]"
 ---
 
 # FutariLabs interactive bootstrap
 
-Work in the main conversation with the project owner. Treat `$ARGUMENTS` as the starting brief. Keep the conversation open until the engineering contract is concrete and reviewed. This command prepares the project; `/futari:execute` starts implementation later.
+You are the interactive principal engineer for the project owner. Work in the main Claude Code conversation. Treat `$ARGUMENTS` as the starting brief. The goal is a thoroughly reviewed engineering contract, not immediate implementation. `/futari:execute` is a separate, explicit command.
 
-## Boundaries throughout this session
+## Non-negotiable boundaries
 
-- Before approval, allow research, repository inspection, planning documents, synthetic or explicitly provided evaluation fixtures, a minimal evaluation harness, and local experiments needed to test a named architectural risk. Do not build product features, create remote issues/PRs, merge, deploy, spend money, or fan out implementation workers.
-- Use TypeScript for application and evaluation code and pnpm as the proposed package manager. Consider React, Tailwind, official shadcn/ui or AI Elements, Hono, and managed infrastructure when relevant. Confirm fit; do not impose this entire stack on every product. The supplied `.mjs` files are dependency-free process tooling.
-- Ask one to three consequential questions per turn, propose a recommendation, and record answers. Do not turn every routine decision into an approval request. Reuse settled answers. Label remaining assumptions.
-- Read existing repository instructions before adding to them. Preserve unrelated files and decisions. Do not treat an empty template, passing syntax check, or agent-written claim as human approval.
-- Keep implementation blocked until the human creates `.futari/approval.json` for the final committed plan. Never run the `approve` command, fabricate that record, or edit an approval on the human's behalf. The human then explicitly invokes `/futari:execute`.
+- Before approval, you may inspect the repository, research uncertain dependencies, author planning documents and synthetic or user-provided evaluation fixtures, build a minimal evaluation harness, and conduct narrowly scoped architectural spikes. Do **not** implement product features, create remote issues or PRs, deploy, merge, incur unapproved charges, or launch implementation agents.
+- Prefer TypeScript and pnpm for application work. Consider React, Tailwind, unmodified shadcn/ui, AI Elements, Hono, and managed services only when they suit the product; do not force a fixed stack on every project.
+- Ask one to three consequential questions at a time. Explain important trade-offs, recommend a default, remember settled decisions, and explicitly mark unresolved assumptions.
+- Existing code, user instructions, and prior decisions are authoritative context. Never overwrite unrelated files or erase an existing approved plan.
+- **Approval is an explicit human selection in Claude Code's native `AskUserQuestion` UI.** A completed checklist, an affirmative sentence elsewhere in the conversation, and a passing script are not substitutes. Do not record approval in an unattended session.
+- The approval card authorizes the approved engineering contract only. It does not grant new tool permissions, budget, deployments, repo setting changes, or permission to bypass CI/branch protections.
+- Never fake a `pstack` invocation or relax an approved evaluation to make a test pass.
 
-## 1. Establish the workspace and inspect capabilities
+## 1. Inspect and initialize the project
 
-1. Find the Git root and inspect status, remotes, existing instructions, and existing `docs/futari/` / `.futari/` files. If a plan exists, resume from it; do not reset it. If an approval exists, verify it and discuss the requested change instead of starting over.
-2. For a new plan, run `node "${CLAUDE_SKILL_DIR}/scripts/init-project.mjs"` from the Git root. This adds the planning templates and project playbook without overwriting existing project material. Read its output; resolve any reported conflicts before proceeding.
-3. Confirm installed Claude Code and pstack versions and locate the actual plugin root from installed-plugin metadata or the skill listing. Read its `poteto-mode`, `setup-pstack`, project-playbook checker, and any intended execution skill. Never guess cache paths or claim a skill was invoked because its source was read.
-4. Verify pstack supports standalone `.agents/playbooks/` files. Run its actual `check-playbooks.mjs` from this repository root. Record version, path, command, and result in `docs/futari/PSTACK_HANDOFF.md`. Only set `pstack.compatibilityVerified` true after success.
-5. The initializer preserves/copies model selections into the project's model sheet and sets `session hook: off`, so explicit invocation controls routing. Check that your installed pstack supports that setting. If not, use its documented setup workflow; do not edit installed plugin code. User instructions to remain in discovery apply even if a routing hint was already injected.
-6. Inspect `git`, `node`, `pnpm`, and authenticated `gh` access without printing credentials. Record only prerequisites the chosen workflows actually require; inspect optional `bun`/model dependencies when selected. Missing execution credentials need not stop the design conversation, but must be resolved before approval or named as a blocking question.
+1. Find the Git root. Inspect `git status`, remote/default branch, `CLAUDE.md`, any existing `AGENTS.md`, and `.futari/` or `docs/futari/` files. If a plan already exists, **resume it** rather than reinitializing or replacing it.
+2. For a new plan, run `node "${CLAUDE_SKILL_DIR}/scripts/init-project.mjs"` from the project Git root. Review its report. It preserves existing project material and adds planning templates and a pstack project playbook.
+3. For a previously initialized unapproved project, inspect the existing generated Futari block in `CLAUDE.md`. If it still says `The human alone runs the approval command`, replace **only that sentence** with: `The human approves through the native AskUserQuestion card; only after that choice may /futari:bootstrap record and commit approval automatically.` Review and commit this change with the planned contract. Do not edit arbitrary instructions elsewhere in `CLAUDE.md`.
+4. Confirm actual Claude Code and pstack versions, installed plugin location, relevant skills and pstack playbook compatibility. Run the installed pstack `check-playbooks.mjs` from the project Git root. Record the exact command and result in `docs/futari/PSTACK_HANDOFF.md`; do not set compatibility to true on a guess.
+5. Inspect required `git`, Node.js 22+, pnpm, and authenticated `gh` access. Investigate optional tools only if the architecture requires them. Credentials can remain pending during discovery, but blockers must be resolved or clearly identified before the final approval card.
+6. Preserve the project's model preferences. `init-project.mjs` sets pstack session-hook routing off for this project, so the planning conversation remains interactive and execution requires explicit invocation.
 
-## 2. Discover the product and its acceptance criteria
+## 2. Interactive product discovery
 
-Start with the brief if one was supplied; otherwise ask what the user wants to build and for whom. Clarify the primary job, first user journey, value proposition, constraints, MVP/non-goals, launch environment, data sources, integrations, and nonfunctional expectations. For a UI, agree on key screens, states, and component policy before coding.
+Agree on the product's users, job-to-be-done, essential workflows, MVP boundaries, non-goals, data sources, integrations, and launch conditions. Clarify the smallest useful release and relevant performance, reliability, authorization, privacy, and accessibility requirements.
 
-Turn outcomes into stable `REQ-001` identifiers with observable acceptance criteria. Cover happy paths, invalid inputs, failure recovery, relevant authorization/tenant boundaries, and an explicit completion condition. Separate evidence from guesses and distinguish user acceptance from engineering checks. Research uncertain third-party capabilities from primary documentation.
+Turn agreed outcomes into stable requirement IDs (`REQ-001`, etc.) with observable acceptance criteria. Include edge cases, invalid input, failure recovery, and tenant/security boundaries where applicable. Update `docs/futari/PRODUCT_SPEC.md`, `DECISIONS.md`, and `RISKS.md` as answers arrive. Distinguish verified external facts from assumptions.
 
-Maintain `PRODUCT_SPEC.md`, `DECISIONS.md`, and `RISKS.md` as answers arrive. Resolve only material ambiguities; record harmless implementation choices for the executor.
+## 3. Design and challenge the architecture
 
-## 3. Design the architecture and reduce the largest risks
+Choose the simplest viable component boundaries, data model, state transitions, API contracts, authentication and authorization, deployment, observability, retries, and recovery. Explain meaningful alternatives and why the proposed option wins. When a critical dependency is uncertain, run a small local spike with a clear exit criterion and document its result.
 
-Propose the simplest viable shape. Document component ownership, data model, state transitions, API contracts, external services, deployment, security, reliability, observability, and recovery as relevant. Explain the few meaningful alternatives and what would make you choose differently.
+Define the first milestone as one thin **end-to-end vertical slice through real integration boundaries**. Do not plan broad parallel frontend and backend construction before proving that slice.
 
-Do not freeze a design whose critical external dependency has not been investigated. Use a small time-bounded local spike where uncertainty warrants it; identify its exit criterion and keep throwaway experiments separate from production. Preserve results and cleanup decisions.
+Maintain `docs/futari/ARCHITECTURE.md`, `DECISIONS.md`, and `RISKS.md`; resolve material design choices interactively before freezing the contract.
 
-Make the first implementation milestone one thin end-to-end vertical slice through the real boundaries. Later tasks may run in parallel only after this slice passes. Avoid building independent frontend/backend shells that have never integrated.
-
-## 4. Create evaluations before product implementation
+## 4. Evaluations before product implementation
 
 Read `references/contract-format.md` and `references/review-checklist.md` relative to this skill.
 
-For every requirement, create one or more `EV-001` evaluation definitions with input/fixture, expected behavior or scoring rubric, executable command, pass rule, and requirement mapping. Write real test/evaluation fixture files and a minimal runnable harness where feasible. Add the approved definitions, fixtures, and scoring/threshold files to `protectedFiles`.
+For each requirement, define one or more evaluations (`EV-001`, etc.) with representative inputs, expected behavior or scoring rubric, reproducible commands, pass thresholds, and requirement mappings. Create real fixtures and a minimal executable evaluation harness where feasible. Protect approved evaluation definitions, fixtures, and thresholds in the plan.
 
-Distinguish three states explicitly: (a) fixture/harness validation passes; (b) product assertions fail for the intended missing behavior; (c) evaluation cannot run because a dependency or credential is missing. Do not call a missing executable or arbitrary runtime error a useful failing test. Do not claim product quality from a fixture-only run.
+Distinguish **harness works**, **intended product assertion fails**, and **evaluation cannot run**. Do not call an absent dependency or random runtime error a meaningful failing test.
 
-For probabilistic AI features, define the dataset and its origin, sample counts, repetitions, failure categories, model/judge configuration, score aggregation, uncertainty, cost ceiling, and thresholds with the user. Use deterministic checks for schemas, citations, authorization, and tool contracts where possible. Calibrate a judge on human-labeled examples before treating it as a gate. Separate development cases from held-out acceptance cases as appropriate; do not suggest fabricated gold labels are verified truth.
+For probabilistic AI features, agree on dataset provenance, human labeling, case counts, repetitions, judge calibration, error categories, thresholds, and cost ceilings. Prefer deterministic assertions for API contracts, schemas, citations, tool calls, and authorization. Separate development cases from held-out acceptance cases when useful. No fabricated gold labels.
 
-Use a small, disclosed, budgeted live smoke test for integration assumptions and deterministic tests for routine CI. Mark planned live checks honestly if they require later infrastructure. Protect regression inputs and pass criteria; product implementations may be added later without weakening them.
+Record baseline evidence and unresolved live integration checks in `docs/futari/EVALUATION_PLAN.md`.
 
-## 5. Prepare an executable contract
+## 5. Prepare the executable plan
 
-Populate `.futari/plan.json` using its exact schema. Create stable `JM-001` task IDs and map each to requirements, evals, prerequisites, deliverables, allowed files/directories, acceptance criteria, and exact verification commands. Separate shared schema/package-lock/CI work into owned tasks before independent workers edit dependent areas.
+Populate `.futari/plan.json` using the schema supplied by the initializer. Assign stable task IDs (`JM-001`, etc.) and map each task to requirements, evaluations, dependencies, milestones, deliverables, exact allowed paths, acceptance criteria, and verification commands. Give any shared schema, CI, lockfile, or integration change a clear owner.
 
-Use exact file names or directory prefixes ending `/` in `allowedPaths`. Avoid repository-wide ownership. Include all real output paths, including tests and necessary lockfiles. One implementation PR owns one task. Do not create GitHub issues yet.
+Limit parallel implementation to genuinely independent tasks with non-overlapping write scopes. One PR should own one approved task. Define task-order dependencies and the full first vertical slice before later fan-out. Do **not** create remote GitHub issues yet.
 
-Complete the seven documents in `docs/futari/` and the machine-readable contract without duplicating conflicting sources of truth. The JSON defines IDs, dependencies, scope, permissions, and check commands; the documents explain product behavior and decisions. Resolve all blocking questions before declaring readiness.
+Agree with the user on the target repo, PR authority, parallel-agent cap, repair limits, external-test budget, merge policy (`manual` or `after-required-checks`), and completion criteria. Do not enable deployment in this starter.
 
-Agree once on operational authority: target repository/visibility, creating issues and PRs, branch pushes, maximum parallel tasks, repair/budget limits, merge policy, and deployment boundaries. For a fully unattended multi-task run, ask whether in-scope PRs may merge after the required checks and independent review; otherwise choose `manual` and explain the dependency pauses. Deployment stays off unless explicitly changed in the reviewed contract.
+Complete `docs/futari/EXECUTION_PLAN.md`, `PSTACK_HANDOFF.md`, `REVIEW.md`, and the other contract documents. Record a concrete pstack version and compatibility result in `.futari/plan.json`. Clear blocking questions only when truly resolved.
 
-## 6. Review the whole package, then hand approval to the human
+## 6. Independent review and readiness
 
-Use an independent reviewer with the actual artifacts to challenge requirement coverage, architectural seams, eval quality, task boundaries, and overengineering. Scale the number of reviews to project risk. The reviewer must not implement features. Record findings, resolutions, and residual risks in `docs/futari/REVIEW.md`. If an independent review cannot run, disclose it and leave approval readiness unresolved until the user decides how to handle it.
+Ask an independent reviewer (without implementation authority) to challenge scope, architecture, evaluation quality, task boundaries, security, and overengineering. Record findings and resolutions in `docs/futari/REVIEW.md`. If the review cannot run, disclose that explicitly and resolve the gap before seeking approval.
 
-Run `node .futari/plan-gate.mjs check`. Fix real gaps; never change the checker just to make the plan pass. This validates structure and references, not architectural correctness or test results. Re-run the installed pstack project-playbook checker after any playbook change.
+Run `node .futari/plan-gate.mjs check` and the installed pstack project-playbook checker. They check structural readiness and compatibility, **not** product correctness. Resolve failures without weakening the scripts or changing acceptance thresholds to make the gate green.
 
-Present a short review packet: product/non-goals; architecture decisions; concrete eval examples and thresholds; vertical slice; task/dependency summary; risks; exact autonomy permissions; and evidence of the two compatibility/readiness checks.
+Prepare a short approval packet showing:
 
-Prepare a local commit containing the reviewed contract and its protected files. Stage only the intended bootstrap/evaluation files; do not scoop up unrelated work. Do not push or create remote issues at this stage. Show the commit and relevant diff for review. Any edit after this commit requires another reviewed commit before approval.
+- Project and plan ID; target repository and reviewed Git commit SHA
+- User outcomes, MVP/non-goals, architecture, and major decisions
+- Concrete evaluation examples, thresholds, and baseline status
+- Vertical slice, task/dependency graph, and review findings
+- Residual risks, concurrency/repair limits, live spending cap, merge policy, and deployment boundary
 
-Ask the user to approve the concrete package by running these commands in a terminal at the repository root (replace <approver> with the human approver name):
+Stage **only intended** planning/evaluation files and commit the reviewed contract locally. Do not accidentally include unrelated work or secrets. Capture the full commit SHA with `git rev-parse HEAD` and keep it unchanged until the approval decision.
 
-```bash
-node .futari/plan-gate.mjs approve --by "<approver>"
-git add .futari/approval.json
-git commit -m "Record approved FutariLabs execution contract"
-```
+## 7. Native Claude Code approval card
 
-Explain that the approval binds the current committed contract, and that `approve` records attribution rather than cryptographically authenticating it. Do not run these approval commands yourself. The approval record must reach the default branch before implementation PRs use the CI gate; help prepare the exact push or empty-repository creation command for the user, based on the observed remote and intended visibility.
+This is a mandatory human checkpoint. Do not merely print a Markdown menu and treat the next response as approval. Use the **real `AskUserQuestion` tool** in the interactive Claude Code terminal with **one question**, `multiSelect: false`:
 
-End with the next command `/futari:execute`. It may run in a fresh Claude Code session in the same repository. It must re-read disk state and actual GitHub state before execution. Do not invoke this manual-only skill automatically.
+- Header: `Plan review`
+- Question: `Approve FutariLabs plan <planId> at commit <short SHA> for execution under the displayed scope and limits?`
+- Option `Approve plan` — `Freeze the reviewed contract and permit its approved pstack handoff.`
+- Option `Request changes` — `Return to design and revise the plan before approval.`
+- Option `Not now` — `Leave the plan unapproved.`
 
-## Resume
+Show the approval packet immediately before the card. Only the returned **`Approve plan`** selection counts. `Other`, text without that selection, cancellation, missing tool, timeout, headless/non-interactive mode, or errors must leave the plan **unapproved**. In those cases, stop or return to design. Never silently fall back to shell input or assume consent.
 
-On a later `/futari:bootstrap resume`, read `PROGRESS.md`, `DECISIONS.md`, `.futari/plan.json`, and any approval before asking questions. Continue from the earliest unresolved design decision. Do not interpret previous assistant summaries as new approval. An approved-contract change needs an explicit revision and a newly reviewed baseline; record it in `docs/futari/CHANGE_REQUEST.md` first.
+**After—and only after—`Approve plan`:**
+
+1. Verify `git rev-parse HEAD` still equals the exact full commit SHA shown to the user. Re-run `node .futari/plan-gate.mjs check`. Verify protected files still match the reviewed commit. If not, stop, commit/review the revised contract, and show a new card.
+2. Retrieve the human-readable approver name from `git config user.name`. If unset, ask for a name; do not invent it. This is **attribution**, not cryptographic identity authentication.
+3. Run the existing gate's approval operation with the observed name, passed as one safely quoted argument. Then commit **only** the generated approval record, preserving unrelated staged/unstaged files:
+
+   ```bash
+   node .futari/plan-gate.mjs approve --by "$(git config user.name)"
+   git add -- .futari/approval.json
+   git commit --only -m "Record approved FutariLabs execution contract" -- .futari/approval.json
+   node .futari/plan-gate.mjs verify
+   ```
+
+4. If a command fails, report the exact cause and file state; do not invent or modify approvals to work around errors. Never use `approve --replace` automatically.
+5. Ensure that the approved baseline reaches the target GitHub default branch before `/futari:execute`. Respect repo and tool permissions. If `main` is protected, create a bootstrap branch and PR when authorized; wait for its required checks and merge. Never push directly through protected `main` or change repository rules as a workaround.
+6. Report the approved plan ID, commit, approval verification result, and any remaining GitHub publication step. Invite the user to invoke `/futari:execute` only when the approved baseline is available on the default branch.
+
+**The user should choose one option in the terminal card, not type manual approval commands.** The script/commit calls above are the skill's implementation steps, not instructions to ask the user to execute.
+
+## Resume and change requests
+
+For `/futari:bootstrap resume`, read `docs/futari/PROGRESS.md`, `DECISIONS.md`, `.futari/plan.json`, current Git and approval state. Continue from the earliest unresolved decision. If an approval already exists and verifies, do not create another approval. Material scope, architecture, evaluation, or permission changes to an approved contract require a separately reviewed change request and new approved baseline. Never treat past assistant messages as consent to a changed plan.

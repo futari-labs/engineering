@@ -9,15 +9,25 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const payload = JSON.parse(fs.readFileSync(path.join(here, '../assets/repo-template.json'), 'utf8'));
 const root = fs.realpathSync(execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());
-if (root === path.parse(root).root || root === os.homedir()) throw new Error('Use a dedicated project repository, not your home or filesystem root.');
+if (root === path.parse(root).root || root === os.homedir()) {
+  throw new Error('Use a dedicated project repository, not your home or filesystem root.');
+}
 
 function assertSafe(relative) {
-  if (path.isAbsolute(relative) || path.posix.normalize(relative) !== relative || relative.includes('\\') || relative.split('/').some(x => x === '..' || x === '.git')) throw new Error(`Unsafe template path: ${relative}`);
+  if (
+    path.isAbsolute(relative) ||
+    path.posix.normalize(relative) !== relative ||
+    relative.includes('\\') ||
+    relative.split('/').some(x => x === '..' || x === '.git')
+  ) {
+    throw new Error(`Unsafe template path: ${relative}`);
+  }
   let cursor = root;
   for (const part of relative.split('/')) {
     cursor = path.join(cursor, part);
     let stat;
-    try { stat = fs.lstatSync(cursor); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try { stat = fs.lstatSync(cursor); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (stat?.isSymbolicLink()) throw new Error(`Refusing symlink target: ${relative}`);
   }
   return path.join(root, relative);
@@ -29,24 +39,45 @@ if (fs.existsSync(planPath)) {
   process.exit(0);
 }
 
-// Compute every change before writing. Existing project material is never replaced.
+// Preserve existing project material: compute every change before writing.
 const pending = new Map();
 for (const [relative, content] of Object.entries(payload.files)) {
   const full = assertSafe(relative);
   if (fs.existsSync(full)) {
-    if (!fs.statSync(full).isFile() || fs.readFileSync(full, 'utf8') !== content) throw new Error(`Existing file needs review before initialization: ${relative}. No changes made.`);
-  } else pending.set(relative, content);
+    if (!fs.statSync(full).isFile() || fs.readFileSync(full, 'utf8') !== content) {
+      throw new Error(`Existing file needs review before initialization: ${relative}. No changes made.`);
+    }
+  } else {
+    pending.set(relative, content);
+  }
 }
 
 const claudePath = assertSafe('CLAUDE.md');
 const currentClaude = fs.existsSync(claudePath) ? fs.readFileSync(claudePath, 'utf8') : '';
-if (currentClaude.includes('<!-- FUTARI_BOOTSTRAP_BEGIN -->')) throw new Error('Existing Futari instruction block without a plan. Review partial initialization; no changes made.');
-pending.set('CLAUDE.md', `${currentClaude}${currentClaude && !currentClaude.endsWith('\n') ? '\n' : ''}\n${payload.claudeBlock}\n`);
+if (currentClaude.includes('<!-- FUTARI_BOOTSTRAP_BEGIN -->')) {
+  throw new Error('Existing Futari instruction block without a plan. Review partial initialization; no changes made.');
+}
+
+// Adapt the existing template without replacing its large JSON asset.
+// The native terminal decision is required; Claude records approval only afterward.
+const oldSentence = 'The human alone runs the approval command.';
+const newSentence = 'The human approves through the native AskUserQuestion card; only after that explicit selection may /futari:bootstrap record and commit approval automatically.';
+if (!payload.claudeBlock.includes(oldSentence)) {
+  throw new Error('Unexpected Futari CLAUDE.md template. Review upstream changes before initializing; no changes made.');
+}
+const claudeBlock = payload.claudeBlock.replace(oldSentence, newSentence);
+pending.set('CLAUDE.md', `${currentClaude}${currentClaude && !currentClaude.endsWith('\n') ? '\n' : ''}\n${claudeBlock}\n`);
 
 const sheetPath = assertSafe('.claude/pstack-models.md');
-const configRoot = process.env.CLAUDE_CONFIG_DIR ? path.resolve(process.env.CLAUDE_CONFIG_DIR) : path.join(os.homedir(), '.claude');
+const configRoot = process.env.CLAUDE_CONFIG_DIR
+  ? path.resolve(process.env.CLAUDE_CONFIG_DIR)
+  : path.join(os.homedir(), '.claude');
 const userSheet = path.join(configRoot, 'pstack-models.md');
-let sheet = fs.existsSync(sheetPath) ? fs.readFileSync(sheetPath, 'utf8') : fs.existsSync(userSheet) ? fs.readFileSync(userSheet, 'utf8') : '# pstack model preferences\n';
+let sheet = fs.existsSync(sheetPath)
+  ? fs.readFileSync(sheetPath, 'utf8')
+  : fs.existsSync(userSheet)
+    ? fs.readFileSync(userSheet, 'utf8')
+    : '# pstack model preferences\n';
 sheet = sheet.replace(/^\s*(?:[-*]\s+)?session hook\s*:\s*.*$/gim, '').trimEnd();
 const sheetNote = "This project's sheet. In this repository it replaces the user's pstack-models.md; ignore that sheet's lines.";
 if (!sheet.includes(sheetNote)) sheet += `\n\n${sheetNote}`;
@@ -59,5 +90,6 @@ for (const [relative, content] of pending) {
   fs.writeFileSync(full, content, { mode: 0o644 });
 }
 console.log(`Initialized ${pending.size} planning/control files in ${root}.`);
-console.log('Existing CLAUDE.md content and pstack model selections were preserved. Project routing is set to off; global settings were not changed.');
-console.log('The contract is a DRAFT. Fill and review it before approval. No product code, GitHub issues, commits, or network actions were created.');
+console.log('Existing CLAUDE.md and pstack model preferences preserved. Project routing is off; global settings unchanged.');
+console.log('Plan status: DRAFT. Approval requires the native AskUserQuestion card after full review.');
+console.log('No product code, remote issues, PRs, commits, or network actions created.');
