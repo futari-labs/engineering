@@ -1,0 +1,16 @@
+name: Validate Futari plugin
+on:
+  pull_request:
+  push:
+permissions:
+  contents: read
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tools/validate.mjs
+      - run: node --check plugins/futari/skills/bootstrap/scripts/init-project.mjs
