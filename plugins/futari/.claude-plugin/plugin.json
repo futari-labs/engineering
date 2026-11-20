@@ -1,7 +1,7 @@
 {
   "name": "futari",
   "displayName": "Futari Labs Engineering",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "homepage": "https://github.com/futari-labs/engineering",
   "repository": "https://github.com/futari-labs/engineering",
   "description": "Interactive engineering bootstrap, eval-first approval, and approved execution via pstack.",
