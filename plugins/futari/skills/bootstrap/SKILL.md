@@ -56,7 +56,7 @@ Record baseline evidence and unresolved live integration checks in `docs/futari/
 
 ## 5. Prepare the executable plan
 
-Populate `.futari/plan.json` using the schema supplied by the initializer. Assign stable task IDs (`JM-001`, etc.) and map each task to requirements, evaluations, dependencies, milestones, deliverables, exact allowed paths, acceptance criteria, and verification commands. Give any shared schema, CI, lockfile, or integration change a clear owner.
+Populate `.futari/plan.json` using the schema supplied by the initializer. Assign stable task IDs (`P-001`, etc.) and map each task to requirements, evaluations, dependencies, milestones, deliverables, exact allowed paths, acceptance criteria, and verification commands. Give any shared schema, CI, lockfile, or integration change a clear owner.
 
 Limit parallel implementation to genuinely independent tasks with non-overlapping write scopes. One PR should own one approved task. Define task-order dependencies and the full first vertical slice before later fan-out. Do **not** create remote GitHub issues yet.
 
