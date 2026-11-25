@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
@@ -25,7 +27,55 @@ assert.ok(data.files['.agents/playbooks/futari-approved-plan.md']);
 assert.ok(data.files['.github/workflows/futari-contract.yml']);
 assert.ok(data.claudeBlock.includes('/futari:bootstrap'));
 assert.ok(data.claudeBlock.includes('/futari:execute'));
+assert.ok(data.claudeBlock.includes('native AskUserQuestion card') && !data.claudeBlock.includes('The human alone runs the approval command'));
 const init = read('plugins/futari/skills/bootstrap/scripts/init-project.mjs');
 assert.ok(init.includes("'../assets/repo-template.json'"));
 assert.ok(init.includes('Existing Futari plan found'));
+const playbook = data.files['.agents/playbooks/futari-approved-plan.md'];
+for (const step of ['git worktree remove', 'rev-list HEAD --not --remotes', 'worktree-audit.mjs', 'git worktree prune']) {
+  assert.ok(playbook.includes(step), `playbook is missing worktree cleanup step: ${step}`);
+}
+assert.ok(read('plugins/futari/skills/execute/SKILL.md').includes('worktree-audit.mjs'));
 console.log('Futari plugin package: structural checks passed');
+
+// Gate behavior: bootstrap a scratch repo from the template, fill a ready plan, and exercise the parallelism rule.
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'futari-validate-'));
+try {
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: path.join(scratch, '.config') };
+  const run = (cmd, args) => execFileSync(cmd, args, { cwd: scratch, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  run('git', ['init', '-q']);
+  run('node', [path.join(root, 'plugins/futari/skills/bootstrap/scripts/init-project.mjs')]);
+  for (const doc of fs.readdirSync(path.join(scratch, 'docs/futari')).filter(n => n.endsWith('.md'))) {
+    fs.writeFileSync(path.join(scratch, 'docs/futari', doc), `# ${doc}\n\nValidation fixture.\n`);
+  }
+  const planPath = path.join(scratch, '.futari/plan.json');
+  const template = JSON.parse(fs.readFileSync(planPath, 'utf8'));
+  assert.equal(template.maxParallelTasks, 5, 'template default for maxParallelTasks');
+  const ready = {
+    ...template, planId: 'validate-v1', projectName: 'Validate', repository: 'futari-labs/validate',
+    completionCondition: 'Fixture plan passes the gate', blockingQuestions: [],
+    pstack: { ...template.pstack, version: '0.0.0', compatibilityVerified: true },
+    requirements: [{ id: 'REQ-001', description: 'Fixture outcome', acceptanceCriteria: ['Gate accepts it'] }],
+    evaluations: [{ ...template.evaluations[0], description: 'Fixture eval', passRule: 'exit 0', command: 'true' }],
+    tasks: [{ ...template.tasks[0], title: 'Fixture slice', acceptanceCriteria: ['Gate accepts it'], verificationCommands: ['true'] }],
+  };
+  const check = extra => {
+    fs.writeFileSync(planPath, JSON.stringify({ ...ready, ...extra }, null, 2));
+    try { return { ok: true, out: run('node', ['.futari/plan-gate.mjs', 'check']) }; }
+    catch (error) { return { ok: false, out: String(error.stderr) }; }
+  };
+  const cases = [
+    [{ maxParallelTasks: 5 }, true, 'PASS'],
+    [{ maxParallelTasks: 6 }, false, 'parallelismRationale'],
+    [{ maxParallelTasks: 8, parallelismRationale: 'Eight independent tasks with disjoint allowedPaths; the human chose 8' }, true, 'PASS'],
+    [{ maxParallelTasks: 9, parallelismRationale: 'Too many' }, false, 'from 1 to 8'],
+  ];
+  for (const [extra, ok, expected] of cases) {
+    const result = check(extra);
+    assert.equal(result.ok, ok, `${JSON.stringify(extra)}: ${result.out}`);
+    assert.ok(result.out.includes(expected), `${JSON.stringify(extra)}: expected "${expected}" in ${result.out}`);
+  }
+  console.log('Futari plan gate: parallelism cap checks passed');
+} finally {
+  fs.rmSync(scratch, { recursive: true, force: true });
+}

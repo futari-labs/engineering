@@ -11,7 +11,7 @@
 
 ## Sources of truth
 
-`.futari/plan.json` is the machine-readable index and scope contract. Product documents explain the agreed behavior and architecture. They must agree. `.futari/approval.json` is written by the human-operated approval command and is not itself a protected input (it would create a hash cycle). `PROGRESS.md` and per-task evidence are mutable observations, not changes to the requirements.
+`.futari/plan.json` is the machine-readable index and scope contract. Product documents explain the agreed behavior and architecture. They must agree. `.futari/approval.json` is written by `/futari:bootstrap` only after the human selects **Approve plan** in the native `AskUserQuestion` card, and it is not itself a protected input (it would create a hash cycle). `PROGRESS.md` and per-task evidence are mutable observations, not changes to the requirements.
 
 ## Contract fields
 
@@ -19,7 +19,7 @@ Use `schemaVersion: 1`; a stable project-specific `planId` (for example `custome
 
 Create `requirements` entries with `id`, `description`, and nonempty `acceptanceCriteria`. Create `evaluations` entries with `id`, `requirementIds`, `description`, `kind`, `passRule`, and `command`. Create `tasks` entries with `id`, `title`, `requirementIds`, `evalIds`, `dependsOn`, `allowedPaths`, `acceptanceCriteria`, `verificationCommands`, and `milestone`. `verticalSliceTaskIds` names the thin first milestone and may not depend on later work. All requirement/evaluation/task references must resolve. Dependencies must form an acyclic graph.
 
-Leave `blockingQuestions` empty only after consequential uncertainties are resolved or explicitly accepted with a documented mitigation. Use `permissions` for `createIssues`, `pushBranches`, `openPullRequests`, `mergePolicy` (`manual` or `after-required-checks`), and `deploy` (false in this development starter). Require a concrete `completionCondition`, `maxParallelTasks` from 1 to 8, `maxRepairAttemptsPerTask` from 1 to 10, and `liveEvaluationBudget` with a three-letter uppercase currency and nonnegative `maxSpend`. A budget of zero authorizes no external evaluation spending. Record service scopes and final acceptance behavior in the handoff. Defaults are proposals until the human approves the whole package.
+Leave `blockingQuestions` empty only after consequential uncertainties are resolved or explicitly accepted with a documented mitigation. Use `permissions` for `createIssues`, `pushBranches`, `openPullRequests`, `mergePolicy` (`manual` or `after-required-checks`), and `deploy` (false in this development starter). Require a concrete `completionCondition`, `maxParallelTasks` from 1 to 8 (default 5; it caps all concurrent subagents, implementation workers and reviewers alike; above 5 requires the human's explicit choice and a concrete `parallelismRationale`), `maxRepairAttemptsPerTask` from 1 to 10, and `liveEvaluationBudget` with a three-letter uppercase currency and nonnegative `maxSpend`. A budget of zero authorizes no external evaluation spending. Record service scopes and final acceptance behavior in the handoff. Defaults are proposals until the human approves the whole package.
 
 The checker deliberately rejects placeholder IDs/text and incomplete maps. It does not execute test commands or decide whether the architecture is sound. Add no custom parser exemptions to pass an unfinished plan.
 
@@ -48,7 +48,7 @@ One PR represents one task. Use a separate task for shared foundations before pa
 
 The supplied gate freezes the plan index, seven design/handoff documents, root `CLAUDE.md`, project model/routing sheet, project playbook, gate and CI scripts, and contract CI workflow. Include the actual eval definitions, golden fixtures, scoring/threshold files, and any additional critical test configuration in `protectedFiles` before approval. Do not freeze volatile run logs or product source that must change during implementation.
 
-The human approval command checks that every protected input matches its committed HEAD bytes, then records a SHA-256 digest and commit. Commit the resulting approval record separately and put this baseline on the default branch before implementation PRs. A changed protected file needs a deliberate new revision and approval, never a worker's automatic hash refresh.
+The approval operation, run only after the human's card selection, checks that every protected input matches its committed HEAD bytes, then records a SHA-256 digest and commit. Commit the resulting approval record separately and put this baseline on the default branch before implementation PRs. A changed protected file needs a deliberate new revision and approval, never a worker's automatic hash refresh.
 
 CI compares PR content with the base branch's approved snapshot using the base branch's checker. This prevents an ordinary product PR from approving its own contract changes. Contract amendments therefore require a separately reviewed maintainer workflow. Finish or pause affected work, explain the changed requirements/evals and affected tasks, review the amendment, and establish a new approved baseline through the repository's authorized governance process. Do not turn off checks or use admin bypass to disguise a plan amendment as implementation.
 

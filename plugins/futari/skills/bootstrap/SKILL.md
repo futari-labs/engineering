@@ -23,7 +23,7 @@ You are the interactive principal engineer for the project owner. Work in the ma
 
 1. Find the Git root. Inspect `git status`, remote/default branch, `CLAUDE.md`, any existing `AGENTS.md`, and `.futari/` or `docs/futari/` files. If a plan already exists, **resume it** rather than reinitializing or replacing it.
 2. For a new plan, run `node "${CLAUDE_SKILL_DIR}/scripts/init-project.mjs"` from the project Git root. Review its report. It preserves existing project material and adds planning templates and a pstack project playbook.
-3. For a previously initialized unapproved project, inspect the existing generated Futari block in `CLAUDE.md`. If it still says `The human alone runs the approval command`, replace **only that sentence** with: `The human approves through the native AskUserQuestion card; only after that choice may /futari:bootstrap record and commit approval automatically.` Review and commit this change with the planned contract. Do not edit arbitrary instructions elsewhere in `CLAUDE.md`.
+3. For a previously initialized unapproved project, inspect the existing generated Futari block in `CLAUDE.md`. If it still says `The human alone runs the approval command`, replace **only that sentence** with: `The human approves through the native AskUserQuestion card; only after that explicit selection may /futari:bootstrap record and commit approval automatically.` Review and commit this change with the planned contract. Do not edit arbitrary instructions elsewhere in `CLAUDE.md`.
 4. Confirm actual Claude Code and pstack versions, installed plugin location, relevant skills and pstack playbook compatibility. Run the installed pstack `check-playbooks.mjs` from the project Git root. Record the exact command and result in `docs/futari/PSTACK_HANDOFF.md`; do not set compatibility to true on a guess.
 5. Inspect required `git`, Node.js 22+, pnpm, and authenticated `gh` access. Investigate optional tools only if the architecture requires them. Credentials can remain pending during discovery, but blockers must be resolved or clearly identified before the final approval card.
 6. Preserve the project's model preferences. `init-project.mjs` sets pstack session-hook routing off for this project, so the planning conversation remains interactive and execution requires explicit invocation.
@@ -62,6 +62,8 @@ Limit parallel implementation to genuinely independent tasks with non-overlappin
 
 Agree with the user on the target repo, PR authority, parallel-agent cap, repair limits, external-test budget, merge policy (`manual` or `after-required-checks`), and completion criteria. Do not enable deployment in this starter.
 
+`maxParallelTasks` caps every subagent running at once: implementation workers plus independent reviewers and adversaries. Keep the default of 5. If the task graph has more than five independent tasks with non-overlapping `allowedPaths`, give the choice to the user with `AskUserQuestion` (header `Parallelism`): `Keep 5 (Recommended)`, or the specific higher cap, at most 8, with your reason. Raise the cap only if the user selects the higher option, and record that reason in `parallelismRationale`. The gate rejects a cap above 5 that has no rationale.
+
 Complete `docs/futari/EXECUTION_PLAN.md`, `PSTACK_HANDOFF.md`, `REVIEW.md`, and the other contract documents. Record a concrete pstack version and compatibility result in `.futari/plan.json`. Clear blocking questions only when truly resolved.
 
 ## 6. Independent review and readiness
@@ -76,7 +78,7 @@ Prepare a short approval packet showing:
 - User outcomes, MVP/non-goals, architecture, and major decisions
 - Concrete evaluation examples, thresholds, and baseline status
 - Vertical slice, task/dependency graph, and review findings
-- Residual risks, concurrency/repair limits, live spending cap, merge policy, and deployment boundary
+- Residual risks, concurrency cap (with `parallelismRationale` above 5), repair limits, live spending cap, merge policy, and deployment boundary
 
 Stage **only intended** planning/evaluation files and commit the reviewed contract locally. Do not accidentally include unrelated work or secrets. Capture the full commit SHA with `git rev-parse HEAD` and keep it unchanged until the approval decision.
 

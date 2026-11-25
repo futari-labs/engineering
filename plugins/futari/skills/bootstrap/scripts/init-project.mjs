@@ -58,15 +58,7 @@ if (currentClaude.includes('<!-- FUTARI_BOOTSTRAP_BEGIN -->')) {
   throw new Error('Existing Futari instruction block without a plan. Review partial initialization; no changes made.');
 }
 
-// Adapt the existing template without replacing its large JSON asset.
-// The native terminal decision is required; Claude records approval only afterward.
-const oldSentence = 'The human alone runs the approval command.';
-const newSentence = 'The human approves through the native AskUserQuestion card; only after that explicit selection may /futari:bootstrap record and commit approval automatically.';
-if (!payload.claudeBlock.includes(oldSentence)) {
-  throw new Error('Unexpected Futari CLAUDE.md template. Review upstream changes before initializing; no changes made.');
-}
-const claudeBlock = payload.claudeBlock.replace(oldSentence, newSentence);
-pending.set('CLAUDE.md', `${currentClaude}${currentClaude && !currentClaude.endsWith('\n') ? '\n' : ''}\n${claudeBlock}\n`);
+pending.set('CLAUDE.md', `${currentClaude}${currentClaude && !currentClaude.endsWith('\n') ? '\n' : ''}\n${payload.claudeBlock}\n`);
 
 const sheetPath = assertSafe('.claude/pstack-models.md');
 const configRoot = process.env.CLAUDE_CONFIG_DIR

@@ -86,7 +86,7 @@ Inside the same product repository:
 /futari:execute
 ```
 
-The skill verifies the frozen plan and pstack compatibility, reconciles existing issues/PRs/worktrees, and invokes the actual pstack skills and repository-specific playbook. It begins with an integrated vertical slice before running independent tasks in parallel. Each task carries requirement, evaluation, scope, and verification identifiers into its issue, worker brief, PR, and evidence.
+The skill verifies the frozen plan and pstack compatibility, reconciles existing issues/PRs/worktrees, and invokes the actual pstack skills and repository-specific playbook. It begins with an integrated vertical slice before running independent tasks in parallel, at most 5 concurrent agents (workers and reviewers) by default, or up to 8 when the human chose more during bootstrap. It removes each task's worktree once the work is merged or pushed and merge-ready, and sweeps leftover clean worktrees before reporting. Each task carries requirement, evaluation, scope, and verification identifiers into its issue, worker brief, PR, and evidence.
 
 Resume a later session with the same `/futari:execute` command. The executor must not regenerate approval or silently weaken the contract to make checks pass.
 
