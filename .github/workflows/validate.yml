@@ -13,4 +13,5 @@ jobs:
         with:
           node-version: '22'
       - run: node tools/validate.mjs
+      - run: node --test tools/worktrees.test.mjs
       - run: node --check plugins/futari/skills/bootstrap/scripts/init-project.mjs

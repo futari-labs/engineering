@@ -13,6 +13,7 @@ assert.equal(market.name, 'futarilabs');
 assert.equal(market.plugins[0].source, './plugins/futari');
 assert.equal(manifest.name, 'futari');
 assert.deepEqual(manifest.dependencies, ['pstack@pstack-claude']);
+assert.equal(market.plugins[0].version, manifest.version, 'marketplace and plugin versions must match');
 assert.ok(market.allowCrossMarketplaceDependenciesOn.includes('pstack-claude'));
 for (const name of ['bootstrap','execute']) {
   const skill = read(`plugins/futari/skills/${name}/SKILL.md`);
@@ -32,10 +33,11 @@ const init = read('plugins/futari/skills/bootstrap/scripts/init-project.mjs');
 assert.ok(init.includes("'../assets/repo-template.json'"));
 assert.ok(init.includes('Existing Futari plan found'));
 const playbook = data.files['.agents/playbooks/futari-approved-plan.md'];
-for (const step of ['git worktree remove', 'rev-list HEAD --not --remotes', 'worktree-audit.mjs', 'git worktree prune']) {
-  assert.ok(playbook.includes(step), `playbook is missing worktree cleanup step: ${step}`);
+// Cleanup behaviour itself is tested in tools/worktrees.test.mjs; this only checks the playbook routes through the helper.
+assert.ok(data.files['.futari/worktrees.mjs'], 'template ships the worktree helper');
+for (const command of ['worktrees.mjs sweep', 'worktrees.mjs acquire', 'worktrees.mjs release']) {
+  assert.ok(playbook.includes(command), `playbook does not route worktrees through ${command}`);
 }
-assert.ok(read('plugins/futari/skills/execute/SKILL.md').includes('worktree-audit.mjs'));
 console.log('Futari plugin package: structural checks passed');
 
 // Gate behavior: bootstrap a scratch repo from the template, fill a ready plan, and exercise the parallelism rule.
@@ -76,6 +78,20 @@ try {
     assert.ok(result.out.includes(expected), `${JSON.stringify(extra)}: expected "${expected}" in ${result.out}`);
   }
   console.log('Futari plan gate: parallelism cap checks passed');
+
+  const idCases = [
+    [{ tasks: [{ ...ready.tasks[0], id: 'P-002' }], verticalSliceTaskIds: ['P-002'] }, true, 'PASS'],
+    [{ tasks: [{ ...ready.tasks[0], id: 'JM-001' }], verticalSliceTaskIds: ['JM-001'] }, false, 'tasks: JM-001 must use the P-001 form'],
+    [{ requirements: [{ ...ready.requirements[0], id: 'R-1' }] }, false, 'requirements: R-1 must use the REQ-001 form'],
+    [{ evaluations: [{ ...ready.evaluations[0], id: 'EVAL-001' }] }, false, 'evaluations: EVAL-001 must use the EV-001 form'],
+  ];
+  for (const [extra, ok, expected] of idCases) {
+    const result = check(extra);
+    assert.equal(result.ok, ok, `${expected}: ${result.out}`);
+    assert.ok(result.out.includes(expected), `expected "${expected}" in ${result.out}`);
+  }
+  console.log('Futari plan gate: identifier convention checks passed');
+  // ci-check.mjs title rule is not exercised: it needs a real PR history (base/head commits, evidence files).
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
 }
